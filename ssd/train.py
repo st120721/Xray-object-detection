@@ -8,7 +8,7 @@ from ssd.model import tools
 data_path = "../dataset"
 batch_size = 16
 n_classes = 4
-path_pretrained_state_dict = torch.load("model/best_state_dict.pth")
+# path_pretrained_state_dict = torch.load("model/best_state_dict.pth")
 
 
 def collate_fn(batch):
@@ -24,7 +24,7 @@ val_dataloader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True,
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-path_pretrained_state_dict = "../best_vgg_state_dict.pth"
+# path_pretrained_state_dict = "../best_vgg_state_dict.pth"
 model = SSD300(n_classes=n_classes)
 model.to(device)
 
