@@ -109,7 +109,7 @@ if __name__ == '__main__':
         det_scores = list()
         true_boxes = list()
         true_labels = list()
-        difficulties = list()
+        
         for idx, (images, bboxes, labels) in enumerate(val_dataloader):
             curr_loss, det_boxes_batch, det_labels_batch, det_scores_batch = validate(model, criterion, images,
                                                                                       bboxes, labels)
@@ -117,16 +117,14 @@ if __name__ == '__main__':
 
             bboxes = [torch.tensor(b).to(device) / 300 for b in bboxes]
             labels = [torch.tensor(l).to(device) for l in labels]
-            diff = [torch.tensor([0]).to(device) for l in labels]
 
             det_boxes.extend(det_boxes_batch)
             det_labels.extend(det_labels_batch)
             det_scores.extend(det_scores_batch)
             true_boxes.extend(bboxes)
             true_labels.extend(labels)
-            difficulties.extend(diff)
 
-        val_APs, val_mAP = tools.calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, difficulties)
+        val_APs, val_mAP = tools.calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels)
         print("val_loss: ", val_loss)
         print("val_mAP", val_mAP)
         print(val_APs)
