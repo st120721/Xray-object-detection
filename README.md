@@ -8,10 +8,11 @@ The dataset used in this project is the SIXray dataset. The SIXray dataset in th
 2. In the ssd directory
     1.   Train using `train.py`
     2.   Evaluate using `evaluate.py`
+    3. To detect an image, run `detect.py`. Change image_path at line 96 to detect the image of your choice.
 
-## Some results
+## Some results of our SSD300 model 
 ---
-
+These are some results of our model trained for 50 epochs.
 <p align="left">
 <img src="./gun_2_improved.png" width="40%">
 </p>
