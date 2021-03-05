@@ -5,6 +5,8 @@ from model.tools import *
 from PIL import Image, ImageDraw, ImageFont
 from ssd.model.ssd_model import *
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Parameters
 distinct_colors = ['#d2f53c', '#000080', '#bd0000', '#fabebe', '#aa6e28']
 label_map = {0: "Background", 1: "Gun", 2: "Knife", 3: "Wrench", 4: "Pliers"}
