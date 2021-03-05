@@ -3,6 +3,7 @@ import torch
 from torchvision import transforms
 from model.tools import *
 from PIL import Image, ImageDraw, ImageFont
+from ssd.model.ssd_model import *
 
 # Parameters
 distinct_colors = ['#d2f53c', '#000080', '#bd0000', '#fabebe', '#aa6e28']
@@ -17,7 +18,7 @@ to_tensor = transforms.ToTensor()
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 
-def detect(model,original_image, min_score, max_overlap, top_k, suppress=None):
+def detect(model,image_path, min_score=0.2, max_overlap=0.5, top_k=10, suppress=None):
     """
     Detect objects in an image with a trained SSD300, and visualize the results.
 
@@ -28,7 +29,7 @@ def detect(model,original_image, min_score, max_overlap, top_k, suppress=None):
     :param suppress: classes that you know for sure cannot be in the image or you do not want in the image, a list
     :return: annotated image, a PIL Image
     """
-
+    original_image = Image.open(image_path)
     # Transform
     image = normalize(to_tensor(resize(original_image)))
 
@@ -63,7 +64,7 @@ def detect(model,original_image, min_score, max_overlap, top_k, suppress=None):
     # Annotate
     annotated_image = original_image
     draw = ImageDraw.Draw(annotated_image)
-    font = ImageFont.truetype("./calibril.ttf", 15)
+    font = ImageFont.truetype("../calibril.ttf", 15)
 
     # Suppress specific classes, if needed
     for i in range(det_boxes.size(0)):
@@ -75,11 +76,7 @@ def detect(model,original_image, min_score, max_overlap, top_k, suppress=None):
         box_location = det_boxes[i].tolist()
         draw.rectangle(xy=box_location, outline=label_color_map[det_labels[i]])
         draw.rectangle(xy=[l + 1. for l in box_location], outline=label_color_map[
-            det_labels[i]])  # a second rectangle at an offset of 1 pixel to increase line thickness
-        # draw.rectangle(xy=[l + 2. for l in box_location], outline=label_color_map[
-        #     det_labels[i]])  # a third rectangle at an offset of 1 pixel to increase line thickness
-        # draw.rectangle(xy=[l + 3. for l in box_location], outline=label_color_map[
-        #     det_labels[i]])  # a fourth rectangle at an offset of 1 pixel to increase line thickness
+            det_labels[i]])
 
         # Text
         text_size = font.getsize(f'{det_labels[i].upper()}: CONF: {det_scores[i]}')
@@ -92,3 +89,13 @@ def detect(model,original_image, min_score, max_overlap, top_k, suppress=None):
     del draw
 
     return annotated_image
+
+# Change the path to detect another image
+image_path = '../dataset/test/0769.jpg'
+
+model_dir = "..//results"
+model = SSD300(4,path_pretrained_state_dict=False)
+state_dict = torch.load(os.path.join(model_dir, 'state_dict.pth' ))
+model.load_state_dict(state_dict)
+
+detect(model, image_path, min_score=0.2, max_overlap=0.5, top_k=10).show()
