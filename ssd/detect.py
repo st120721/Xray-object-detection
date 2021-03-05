@@ -99,5 +99,6 @@ model_dir = "..//results"
 model = SSD300(4,path_pretrained_state_dict=False)
 state_dict = torch.load(os.path.join(model_dir, 'state_dict.pth' ))
 model.load_state_dict(state_dict)
+model.to(device)
 
 detect(model, image_path, min_score=0.2, max_overlap=0.5, top_k=10).show()
