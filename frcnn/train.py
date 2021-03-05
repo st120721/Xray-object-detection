@@ -1,43 +1,31 @@
 import os
-
-import json
-
-from model import faster_rcnn,tools
-from xray_dataloader import Xaydataset
 from torch.utils.data import Dataset, DataLoader
-import torch.optim as optim
 import torch
+from frcnn.model import faster_rcnn,tools
+from frcnn.model.xray_dataloder import XrayDataset
 
-
-data_path="dataset"
-train_dataset = Xaydataset(data_path, "train")
+data_path = "../dataset"
+train_dataset = XrayDataset(data_path, "train")
 train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, pin_memory=True)
-val_dataset = Xaydataset(data_path, "val")
+val_dataset = XrayDataset(data_path, "val")
 val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=False, pin_memory=True)
-#sample = next(iter(train_dataloader))
 
-num_classes = 5
+num_classes = 4
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = faster_rcnn.FasterRCNN(n_class=num_classes)
-model = model.to("cuda")
+model = model.to(device)
 
 params = [p for p in model.parameters() if p.requires_grad]
-
-
-lr=0.0003
-lr=0.001
+lr=0.003
 optimizer = torch.optim.Adam(params, lr=lr)
-
-
 
 def train(model, optimizer, sample):
     model.train()
     img=sample["img"]
     bbox=sample["boxes"]
     label=sample["label"]
-    # print(tools.totensor(img))
-    # print(tools.totensor(bbox))
-    # print(label.cuda())
     img, bbox, label = img.cuda().float(), bbox.cuda(), label.cuda()
 
     optimizer.zero_grad()
@@ -49,32 +37,39 @@ def train(model, optimizer, sample):
 
 def eval(dataloader, model):
     model.eval()
-    pred_bboxes, pred_labels, pred_scores = list(), list(), list()
-    gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
+    det_boxes, det_labels, det_scores = list(), list(), list()
+    true_boxes, true_labels, difficulties = list(), list(), list()
     for idx, sample in enumerate(dataloader):
         img = sample["img"]
         bbox = sample["boxes"]
         label = sample["label"]
         size= sample["size"]
-        pred_bboxes_, pred_labels_, pred_scores_ = model.predict(img, [size])
-        gt_bboxes += list(bbox)
-        gt_labels += list(label)
-        pred_bboxes += pred_bboxes_
-        pred_labels += pred_labels_
-        pred_scores += pred_scores_
+        det_boxes_batch, det_labels_batch, det_scores_batch = model.predict(img, [size])
 
-    result = tools.eval_detection_voc(
-        pred_bboxes, pred_labels, pred_scores,
-        gt_bboxes, gt_labels, gt_difficults,
-        use_07_metric=True)
-    return result
+        bboxes = [b.to(device)for b in bbox]
+        labels = [l.to(device) for l in label]
+        diff = [torch.tensor([0]).to(device) for l in label]
+
+        det_boxes.extend(det_boxes_batch)
+        det_labels.extend(det_labels_batch)
+        det_scores.extend(det_scores_batch)
+        true_boxes.extend(bboxes)
+        true_labels.extend(labels)
+        difficulties.extend(diff)
+
+
+    val_APs, val_mAP = tools.calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, difficulties)
+
+    return val_mAP
 
 
 def main():
     tmp_path = './checkpoint.pth'
-    save_stride = 1000
-    num_epochs = 400
-    model_dir="models"
+
+    num_epochs = 50
+    model_dir = '..\\results'
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
     best_map = 0
     total_train_loss = []
     total_eval_result = []
@@ -101,11 +96,7 @@ def main():
         }
 
         torch.save(checkpoint, tmp_path)
-        if (epoch + 1) % save_stride == 0:
-            torch.save(checkpoint, os.path.join(model_dir, 'frcnn_ver2_{}.pth'.format(epoch + 1)))
-        torch.save(checkpoint, os.path.join(model_dir, 'frcnn_recent.pth'))
-
-
+        #torch.save(checkpoint, os.path.join(model_dir, 'frcnn_recent.pth'))
 
         print("validation phase")
         eval_result=eval(val_dataloader,model)
@@ -120,7 +111,5 @@ def main():
 
 
 if __name__ == '__main__':
-
-
-    main()
+     main()
 

@@ -14,7 +14,7 @@ class VGGBase(nn.Module):
     VGG base convolutions to produce lower-level feature maps.
     """
 
-    def __init__(self):
+    def __init__(self,path_pretrained_state_dict=False):
         super(VGGBase, self).__init__()
 
         # Standard convolutional layers in VGG16
@@ -47,7 +47,7 @@ class VGGBase(nn.Module):
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
 
         # Load pretrained layers
-        self.load_pretrained_layers()
+        self.load_pretrained_layers(path_pretrained_state_dict)
 
     def forward(self, image):
         """
@@ -86,7 +86,7 @@ class VGGBase(nn.Module):
         # Lower-level feature maps
         return conv4_3_feats, conv7_feats
 
-    def load_pretrained_layers(self):
+    def load_pretrained_layers(self,path_pretrained_state_dict=False):
         """
         As in the paper, we use a VGG-16 pretrained on the ImageNet task as the base network.
         There's one available in PyTorch, see https://pytorch.org/docs/stable/torchvision/models.html#torchvision.models.vgg16
@@ -98,29 +98,50 @@ class VGGBase(nn.Module):
         state_dict = self.state_dict()
         param_names = list(state_dict.keys())
 
-        # Pretrained VGG base
-        pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
-        pretrained_param_names = list(pretrained_state_dict.keys())
+        if path_pretrained_state_dict:
+            pretrained_state_dict = torch.load(path_pretrained_state_dict)
+            pretrained_param_names = list(pretrained_state_dict.keys())
+            # Transfer conv. parameters from pretrained model to current model
+            for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
+                state_dict[param] = pretrained_state_dict[pretrained_param_names[i]].to("cpu")
 
-        # Transfer conv. parameters from pretrained model to current model
-        for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
-            state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
+            # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
+            # fc6
+            conv_fc6_weight = pretrained_state_dict['net.classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
+            conv_fc6_bias = pretrained_state_dict['net.classifier.0.bias']  # (4096)
+            state_dict['conv6.weight'] = decimate(conv_fc6_weight.to("cpu"), m=[4, None, 3, 3])  # (1024, 512, 3, 3)
+            state_dict['conv6.bias'] = decimate(conv_fc6_bias.to("cpu"), m=[4])  # (1024)
+            # fc7
+            conv_fc7_weight = pretrained_state_dict['net.classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
+            conv_fc7_bias = pretrained_state_dict['net.classifier.3.bias']  # (4096)
+            state_dict['conv7.weight'] = decimate(conv_fc7_weight.to("cpu"), m=[4, 4, None, None])  # (1024, 1024, 1, 1)
+            state_dict['conv7.bias'] = decimate(conv_fc7_bias.to("cpu"), m=[4])  # (1024)
 
-        # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
-        # fc6
-        conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
-        conv_fc6_bias = pretrained_state_dict['classifier.0.bias']  # (4096)
-        state_dict['conv6.weight'] = decimate(conv_fc6_weight, m=[4, None, 3, 3])  # (1024, 512, 3, 3)
-        state_dict['conv6.bias'] = decimate(conv_fc6_bias, m=[4])  # (1024)
-        # fc7
-        conv_fc7_weight = pretrained_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
-        conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
-        state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
-        state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
 
-        # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
-        # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
-        # ...operating on the 2D image of size (C, H, W) without padding
+        else:
+            # Pretrained VGG base
+            pretrained_state_dict = torchvision.models.vgg16(pretrained=True).state_dict()
+            pretrained_param_names = list(pretrained_state_dict.keys())
+
+            # Transfer conv. parameters from pretrained model to current model
+            for i, param in enumerate(param_names[:-4]):  # excluding conv6 and conv7 parameters
+                state_dict[param] = pretrained_state_dict[pretrained_param_names[i]]
+
+            # Convert fc6, fc7 to convolutional layers, and subsample (by decimation) to sizes of conv6 and conv7
+            # fc6
+            conv_fc6_weight = pretrained_state_dict['classifier.0.weight'].view(4096, 512, 7, 7)  # (4096, 512, 7, 7)
+            conv_fc6_bias = pretrained_state_dict['classifier.0.bias']  # (4096)
+            state_dict['conv6.weight'] = decimate(conv_fc6_weight, m=[4, None, 3, 3])  # (1024, 512, 3, 3)
+            state_dict['conv6.bias'] = decimate(conv_fc6_bias, m=[4])  # (1024)
+            # fc7
+            conv_fc7_weight = pretrained_state_dict['classifier.3.weight'].view(4096, 4096, 1, 1)  # (4096, 4096, 1, 1)
+            conv_fc7_bias = pretrained_state_dict['classifier.3.bias']  # (4096)
+            state_dict['conv7.weight'] = decimate(conv_fc7_weight, m=[4, 4, None, None])  # (1024, 1024, 1, 1)
+            state_dict['conv7.bias'] = decimate(conv_fc7_bias, m=[4])  # (1024)
+
+            # Note: an FC layer of size (K) operating on a flattened version (C*H*W) of a 2D image of size (C, H, W)...
+            # ...is equivalent to a convolutional layer with kernel size (H, W), input channels C, output channels K...
+            # ...operating on the 2D image of size (C, H, W) without padding
 
         self.load_state_dict(state_dict)
 
@@ -320,12 +341,12 @@ class SSD300(nn.Module):
     The SSD300 network - encapsulates the base VGG network, auxiliary, and prediction convolutions.
     """
 
-    def __init__(self, n_classes):
+    def __init__(self, n_classes,path_pretrained_state_dict=False):
         super(SSD300, self).__init__()
 
         self.n_classes = n_classes
 
-        self.base = VGGBase()
+        self.base = VGGBase(path_pretrained_state_dict)
         self.aux_convs = AuxiliaryConvolutions()
         self.pred_convs = PredictionConvolutions(n_classes)
 

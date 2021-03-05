@@ -16,7 +16,7 @@ class XrayDataset(Dataset):
 
     def __len__(self):
 
-       return len(self.image_names)
+        return len(self.image_names)
 
     def __getitem__(self, idx):
         full_image_path = os.path.join(self.images_path, self.image_names[idx])
@@ -56,7 +56,14 @@ class XrayDataset(Dataset):
         img = torchvision.transforms.functional.to_tensor(img)
         mean, std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
         img = torchvision.transforms.functional.normalize(img, mean, std)
-        return img, boxes, labels
+        sample = dict()
+        sample["img"] = img
+        sample["size"] = [o_H, o_W]
+        sample["boxes"] = np.array(boxes)
+        sample["label"] = np.array(labels)
+        return sample
+
+      #  return img, boxes, labels
 
     def resize_bbox(self, bbox, in_size, out_size):
         y_scale = float(out_size[0]) / in_size[0]

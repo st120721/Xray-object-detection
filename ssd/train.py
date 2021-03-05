@@ -1,4 +1,3 @@
-
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
@@ -74,7 +73,6 @@ def validate(model, criterion, images, bboxes, labels):
 
 if __name__ == '__main__':
     max_epoch = 50
-    max_epoch = 50
     max_val_mAP = 0
 
     model_dir = '..\\results'
@@ -83,7 +81,7 @@ if __name__ == '__main__':
     train_losses = []
     val_losses = []
     val_mAPs = []
-    APs=[]
+    APs = []
     for epoch in (range(max_epoch)):
         train_loss = 0.0
 
@@ -100,9 +98,7 @@ if __name__ == '__main__':
             curr_loss = train(model, criterion, optimizer, images, bboxes, labels)
             train_loss += curr_loss / len(train_dataloader)
 
-
-        print("train_loss: ", train_loss )
-
+        print("train_loss: ", train_loss)
 
         torch.save(model.state_dict(), os.path.join(model_dir, 'state_dict.pth'))
         torch.save(optimizer.state_dict(), os.path.join(model_dir, 'optimizer_state_dict.pth'))
@@ -113,7 +109,7 @@ if __name__ == '__main__':
         det_scores = list()
         true_boxes = list()
         true_labels = list()
-        difficulties=list()
+        difficulties = list()
         for idx, (images, bboxes, labels) in enumerate(val_dataloader):
             curr_loss, det_boxes_batch, det_labels_batch, det_scores_batch = validate(model, criterion, images,
                                                                                       bboxes, labels)
@@ -130,9 +126,9 @@ if __name__ == '__main__':
             true_labels.extend(labels)
             difficulties.extend(diff)
 
-        val_APs, val_mAP = tools.calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels,difficulties)
+        val_APs, val_mAP = tools.calculate_mAP(det_boxes, det_labels, det_scores, true_boxes, true_labels, difficulties)
         print("val_loss: ", val_loss)
-        print("val_mAP",val_mAP)
+        print("val_mAP", val_mAP)
         print(val_APs)
         if max_val_mAP < val_mAP:
             torch.save(model.state_dict(), os.path.join(model_dir, 'best_state_dict.pth'))
